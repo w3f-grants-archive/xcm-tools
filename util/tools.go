@@ -1,6 +1,18 @@
 package util
 
-import "strconv"
+import (
+	"github.com/itering/scale.go/utiles"
+	"strconv"
+)
+
+// HexToUint64 convert hex string to uint64
+func HexToUint64(h string) uint64 {
+	blockNum, err := strconv.ParseUint(utiles.TrimHex(h), 16, 64)
+	if err != nil {
+		return 0
+	}
+	return blockNum
+}
 
 // ToInt convert string to int
 func ToInt(s string) int {

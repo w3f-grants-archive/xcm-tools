@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/gmajor-encrypt/xcm-tools/parse"
 	"github.com/gmajor-encrypt/xcm-tools/tracker"
 	"github.com/gmajor-encrypt/xcm-tools/tx"
 	"github.com/itering/scale.go/utiles"
@@ -127,6 +129,35 @@ func subCommands() []cli.Command {
 						return nil
 					},
 				},
+				{
+					Name:  "EthBridge",
+					Usage: "send to ethereum",
+					Flags: append([]cli.Flag{
+						cli.Uint64Flag{
+							Name:     "chainId",
+							Usage:    "ethereum chain id",
+							Required: true,
+						},
+						cli.StringFlag{
+							Name:     "contract",
+							Usage:    "erc20 contract address",
+							Required: true,
+						},
+					}, sendFlag...),
+					Action: func(c *cli.Context) error {
+						client := tx.NewClient(c.String("endpoint"))
+						defer client.Close()
+						client.SetKeyRing(c.String("keyring"))
+						beneficiary := c.String("dest")
+						transferAmount := decimal.RequireFromString(c.String("amount"))
+						txHash, err := client.SendTokenToEthereum(beneficiary, c.String("contract"), transferAmount, c.Uint64("chainId"))
+						if err != nil {
+							return err
+						}
+						log.Print("send HRMP message success, tx hash: ", txHash)
+						return nil
+					},
+				},
 			},
 		},
 		{
@@ -148,11 +179,12 @@ func subCommands() []cli.Command {
 			Action: func(c *cli.Context) error {
 				client := tx.NewClient(c.String("endpoint"))
 				defer client.Close()
-				xcm, err := client.ParseXcmMessageInstruction(c.String("message"))
+				p := parse.New(client.Metadata())
+				xcm, err := p.ParseXcmMessageInstruction(c.String("message"))
 				if err != nil {
 					return err
 				}
-				log.Print("parse xcm message success: ")
+				log.Println("parse xcm message success: ")
 				utiles.Debug(xcm)
 				return nil
 			},
@@ -190,6 +222,51 @@ func subCommands() []cli.Command {
 			},
 			Action: func(c *cli.Context) error {
 				_, err := tracker.TrackXcmMessage(c.String("extrinsicIndex"), tx.Protocol(c.String("protocol")), c.String("endpoint"), c.String("destEndpoint"), c.String("relaychainEndpoint"))
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		},
+		{
+			Name:  "trackerBridge",
+			Usage: "tracker snowBridge message transaction",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "extrinsicIndex",
+					Usage: "xcm message extrinsicIndex, it is polkadot to ethereum xcm message extrinsic index",
+				},
+				cli.StringFlag{
+					Name:  "hash",
+					Usage: "ethereum send token to polkadot transaction hash, if not empty, will ignore extrinsicIndex",
+				},
+				cli.StringFlag{
+					Name:     "bridgeHubEndpoint",
+					Usage:    "BridgeHubEndpoint endpoint, only support websocket protocol, like ws:// or wss://",
+					Required: true,
+				},
+				cli.StringFlag{
+					Name:     "relaychainEndpoint",
+					Usage:    "relay chain endpoint, only support websocket protocol, like ws:// or wss://",
+					Required: false,
+				},
+				cli.StringFlag{
+					Name:     "endpoint",
+					Usage:    "Set substrate endpoint, only support websocket protocol, like ws:// or wss://",
+					EnvVar:   "ENDPOINT",
+					Required: true,
+				},
+			},
+			Action: func(c *cli.Context) error {
+				_, err := tracker.TrackBridgeMessage(
+					context.Background(),
+					&tracker.TrackBridgeMessageOptions{
+						Tx:                c.String("hash"),
+						ExtrinsicIndex:    c.String("extrinsicIndex"),
+						BridgeHubEndpoint: c.String("bridgeHubEndpoint"),
+						OriginEndpoint:    c.String("endpoint"),
+						RelayEndpoint:     c.String("relaychainEndpoint"),
+					})
 				if err != nil {
 					return err
 				}

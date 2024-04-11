@@ -11,6 +11,7 @@ import (
 	"github.com/itering/substrate-api-rpc/metadata"
 	"github.com/itering/substrate-api-rpc/rpc"
 	"github.com/itering/substrate-api-rpc/websocket"
+	"log"
 	"strings"
 )
 
@@ -20,7 +21,9 @@ type ITracker interface {
 
 var (
 	NotfoundXcmMessageErr = errors.New("not found xcm message")
+	InvalidExtrinsic      = errors.New("invalid extrinsic")
 	InvalidDestParaId     = errors.New("invalid dest para id")
+	InvalidParaHead       = errors.New("invalid para head")
 )
 
 func CreateSnapshotClient(endpoint string) (*websocket.PoolConn, *metadata.Instant, func()) {
@@ -70,11 +73,19 @@ func findOutBlockByExtrinsicIndex(extrinsicIndex string) *ExtrinsicIndex {
 	return nil
 }
 
+// hash return blake2_256 hash
 func hash(hex string) string {
 	return utiles.AddHex(utiles.BytesToHex(hasher.HashByCryptoName(utiles.HexToBytes(hex), "Blake2_256")))
 }
 
+// trackXcmMessage track xcm message
 func TrackXcmMessage(extrinsicIndex string, protocol tx.Protocol, originEndpoint, destEndpoint, relayEndpoint string) (*Event, error) {
+	log.Println("Start track xcm message with ExtrinsicIndex:", extrinsicIndex,
+		"Protocol:", protocol,
+		"OriginEndpoint:", originEndpoint,
+		"DestEndpoint:", destEndpoint,
+		"RelayEndpoint:", relayEndpoint)
+
 	_, metadataInstant, cancel := CreateSnapshotClient(originEndpoint)
 	chain := checkChain(metadataInstant)
 	if chain == Solo {
@@ -96,7 +107,7 @@ func TrackXcmMessage(extrinsicIndex string, protocol tx.Protocol, originEndpoint
 		if chain != Parachain {
 			return nil, errors.New("originEndpoint not parachain")
 		}
-		h := Hrmp{extrinsicIndex: extrinsicIndex, originEndpoint: originEndpoint, destEndpoint: destEndpoint, relayChainEndpoint: relayEndpoint}
+		h := Hrmp{extrinsicIndex: extrinsicIndex, originEndpoint: originEndpoint, destEndpoint: destEndpoint, relayChainEndpoint: relayEndpoint, filterCallBack: hrmpFilter}
 		return h.Track(ctx)
 	case tx.DMP:
 		if chain != Relaychain {

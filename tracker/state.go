@@ -43,3 +43,41 @@ func PendingAvailability(paraId uint, blockHash string) (*Inclusion, error) {
 	raw.ToAny(&inclusion)
 	return &inclusion, nil
 }
+
+func UpwardMessages(blockHash string) ([]string, error) {
+	raw, err := rpc.ReadStorage(nil, "parachainSystem", "upwardMessages", blockHash)
+	if err != nil {
+		return nil, err
+	}
+	return raw.ToStringSlice(), nil
+}
+
+type OutboundMessage struct {
+	Recipient uint   `json:"recipient"`
+	Data      string `json:"data"`
+}
+
+func HrmpOutboundMessages(blockHash string) (list []OutboundMessage, err error) {
+	raw, err := rpc.ReadStorage(nil, "parachainSystem", "hrmpOutboundMessages", blockHash)
+	if err != nil {
+		return
+	}
+	raw.ToAny(&list)
+	return
+}
+
+func SystemNumber(blockHash string) (int64, error) {
+	raw, err := rpc.ReadStorage(nil, "System", "Number", blockHash)
+	if err != nil {
+		return 0, err
+	}
+	return raw.ToInt64(), nil
+}
+
+func timestampNow(blockHash string) (int64, error) {
+	raw, err := rpc.ReadStorage(nil, "Timestamp", "Now", blockHash)
+	if err != nil {
+		return 0, err
+	}
+	return raw.ToInt64(), nil
+}

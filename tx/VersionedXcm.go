@@ -6,7 +6,10 @@ type VersionedXcm struct {
 	V0 *V0 `json:"V0,omitempty"`
 	V1 *V1 `json:"V1,omitempty"`
 	V2 *V2 `json:"V2,omitempty"`
+	// Xcm v3 https://github.com/paritytech/polkadot-sdk/tree/66051adb619d2119771920218e2de75fa037d7e8/polkadot/xcm/src/v3
 	V3 *V3 `json:"V3,omitempty"`
+	// Xcm v4 https://github.com/paritytech/polkadot-sdk/tree/66051adb619d2119771920218e2de75fa037d7e8/polkadot/xcm/src/v4
+	V4 *V4 `json:"V4,omitempty"`
 }
 
 type V0 struct {
@@ -113,16 +116,77 @@ type XcmInstructionV3 struct {
 	ReportTransactStatus      *interface{}            `json:"ReportTransactStatus,omitempty"`
 	ClearTransactStatus       *interface{}            `json:"ClearTransactStatus,omitempty"`
 	UniversalOrigin           *interface{}            `json:"UniversalOrigin,omitempty"`
-	ExportMessage             *interface{}            `json:"ExportMessage,omitempty"`
+	ExportMessage             *ExportMessageV3        `json:"ExportMessage,omitempty"`
 	LockAsset                 *interface{}            `json:"LockAsset,omitempty"`
 	UnlockAsset               *interface{}            `json:"UnlockAsset,omitempty"`
 	NoteUnlockable            *interface{}            `json:"NoteUnlockable,omitempty"`
 	RequestUnlock             *interface{}            `json:"RequestUnlock,omitempty"`
 	SetFeesMode               *interface{}            `json:"SetFeesMode,omitempty"`
-	SetTopic                  *interface{}            `json:"SetTopic,omitempty"`
+	SetTopic                  *string                 `json:"SetTopic,omitempty"`
 	ClearTopic                *interface{}            `json:"ClearTopic,omitempty"`
 	AliasOrigin               *interface{}            `json:"AliasOrigin,omitempty"`
 	UnpaidExecution           *interface{}            `json:"UnpaidExecution,omitempty"`
+}
+
+type V4 []XcmInstructionV4
+
+type XcmInstructionV4 struct {
+	WithdrawAsset             *interface{}     `json:"WithdrawAsset,omitempty"`
+	ReserveAssetDeposited     *interface{}     `json:"ReserveAssetDeposited,omitempty"`
+	ReceiveTeleportedAsset    *interface{}     `json:"ReceiveTeleportedAsset,omitempty"`
+	QueryResponse             *interface{}     `json:"QueryResponse,omitempty"`
+	TransferAsset             *interface{}     `json:"TransferAsset,omitempty"`
+	TransferReserveAsset      *interface{}     `json:"TransferReserveAsset,omitempty"`
+	Transact                  *interface{}     `json:"Transact,omitempty"`
+	HrmpNewChannelOpenRequest *interface{}     `json:"HrmpNewChannelOpenRequest,omitempty"`
+	HrmpChannelAccepted       *interface{}     `json:"HrmpChannelAccepted,omitempty"`
+	HrmpChannelClosing        *interface{}     `json:"HrmpChannelClosing,omitempty"`
+	ClearOrigin               *interface{}     `json:"ClearOrigin,omitempty"`
+	DescendOrigin             *interface{}     `json:"DescendOrigin,omitempty"`
+	ReportError               *interface{}     `json:"ReportError,omitempty"`
+	DepositAsset              *interface{}     `json:"DepositAsset,omitempty"`
+	DepositReserveAsset       *interface{}     `json:"DepositReserveAsset,omitempty"`
+	ExchangeAsset             *interface{}     `json:"ExchangeAsset,omitempty"`
+	InitiateReserveWithdraw   *interface{}     `json:"InitiateReserveWithdraw,omitempty"`
+	InitiateTeleport          *interface{}     `json:"InitiateTeleport,omitempty"`
+	ReportHolding             *interface{}     `json:"ReportHolding,omitempty"`
+	BuyExecution              *interface{}     `json:"BuyExecution,omitempty"`
+	RefundSurplus             *interface{}     `json:"RefundSurplus,omitempty"`
+	SetErrorHandler           *interface{}     `json:"SetErrorHandler,omitempty"`
+	SetAppendix               *interface{}     `json:"SetAppendix,omitempty"`
+	ClearError                *interface{}     `json:"ClearError,omitempty"`
+	ClaimAsset                *interface{}     `json:"ClaimAsset,omitempty"`
+	Trap                      *interface{}     `json:"Trap,omitempty"`
+	SubscribeVersion          *interface{}     `json:"SubscribeVersion,omitempty"`
+	UnsubscribeVersion        *interface{}     `json:"UnsubscribeVersion,omitempty"`
+	BurnAsset                 *interface{}     `json:"BurnAsset,omitempty"`
+	ExpectAsset               *interface{}     `json:"ExpectAsset,omitempty"`
+	ExpectOrigin              *interface{}     `json:"ExpectOrigin,omitempty"`
+	ExpectError               *interface{}     `json:"ExpectError,omitempty"`
+	ExpectTransactStatus      *interface{}     `json:"ExpectTransactStatus,omitempty"`
+	QueryPallet               *interface{}     `json:"QueryPallet,omitempty"`
+	ExpectPallet              *interface{}     `json:"ExpectPallet,omitempty"`
+	ReportTransactStatus      *interface{}     `json:"ReportTransactStatus,omitempty"`
+	ClearTransactStatus       *interface{}     `json:"ClearTransactStatus,omitempty"`
+	UniversalOrigin           *interface{}     `json:"UniversalOrigin,omitempty"`
+	ExportMessage             *ExportMessageV4 `json:"ExportMessage,omitempty"`
+	LockAsset                 *interface{}     `json:"LockAsset,omitempty"`
+	UnlockAsset               *interface{}     `json:"UnlockAsset,omitempty"`
+	NoteUnlockable            *interface{}     `json:"NoteUnlockable,omitempty"`
+	RequestUnlock             *interface{}     `json:"RequestUnlock,omitempty"`
+	SetFeesMode               *interface{}     `json:"SetFeesMode,omitempty"`
+	SetTopic                  *string          `json:"SetTopic,omitempty"`
+	ClearTopic                *interface{}     `json:"ClearTopic,omitempty"`
+	AliasOrigin               *interface{}     `json:"AliasOrigin,omitempty"`
+	UnpaidExecution           *interface{}     `json:"UnpaidExecution,omitempty"`
+}
+
+type ExportMessageV3 struct {
+	Xcm V3 `json:"xcm"`
+}
+
+type ExportMessageV4 struct {
+	Xcm V4 `json:"xcm"`
 }
 
 type TransferAsset struct {
@@ -218,4 +282,51 @@ func (v *VersionedXcm) ToScale() interface{} {
 	b, _ := json.Marshal(v)
 	_ = json.Unmarshal(b, &r)
 	return r
+}
+
+// PickoutTopicId pickout topic id from xcm instruction
+func (v *VersionedXcm) PickoutTopicId() string {
+	if v.V4 != nil {
+		return v.V4.PickoutTopicId()
+	}
+	if v.V3 != nil {
+		return v.V3.PickoutTopicId()
+	}
+	return ""
+}
+
+func (v *V4) PickoutTopicId() string {
+	for _, x := range *v {
+		if x.SetTopic != nil {
+			return *x.SetTopic
+		}
+	}
+	return ""
+}
+
+func (v *V3) PickoutTopicId() string {
+	for _, x := range *v {
+		if x.SetTopic != nil {
+			return *x.SetTopic
+		}
+	}
+	return ""
+}
+
+func (v *VersionedXcm) PickoutExportMessageTopic() string {
+	if v.V4 != nil {
+		for _, x := range *v.V4 {
+			if x.ExportMessage != nil {
+				return x.ExportMessage.Xcm.PickoutTopicId()
+			}
+		}
+	}
+	if v.V3 != nil {
+		for _, x := range *v.V3 {
+			if x.ExportMessage != nil {
+				return x.ExportMessage.Xcm.PickoutTopicId()
+			}
+		}
+	}
+	return ""
 }

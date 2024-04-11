@@ -1,12 +1,10 @@
 package tx
 
 import (
-	"encoding/json"
 	"github.com/itering/substrate-api-rpc/keyring"
 	"github.com/shopspring/decimal"
 	"strings"
 
-	"github.com/gmajor-encrypt/xcm-tools/util"
 	"github.com/itering/scale.go/types"
 	"github.com/itering/substrate-api-rpc/metadata"
 	"github.com/itering/substrate-api-rpc/rpc"
@@ -18,7 +16,6 @@ type Client struct {
 	Ump                IXCMP
 	Dmp                IXCMP
 	Hrmp               IXCMP
-	XcmVersion         uint
 	m                  *metadata.Instant
 	XcmVersionTypeName string
 }
@@ -46,8 +43,6 @@ func NewClient(endpoint string) *Client {
 		Hrmp: NewMessage(HRMP),
 		m:    metadataInstant,
 	}
-
-	client.getXcmLatestVersion()
 	return client
 }
 
@@ -59,8 +54,12 @@ func (c *Client) Close() {
 	websocket.Close()
 }
 
-// getCallByName get call by module name and call name
-func getCallByName(moduleName, callName string, m *metadata.Instant) *types.MetadataCalls {
+func (c *Client) Metadata() *metadata.Instant {
+	return c.m
+}
+
+// GetCallByName get call by module name and call name
+func GetCallByName(moduleName, callName string, m *metadata.Instant) *types.MetadataCalls {
 	module := GetModule(moduleName, m)
 	if module == nil {
 		return nil
@@ -82,34 +81,6 @@ func GetModule(moduleName string, m *metadata.Instant) *types.MetadataModules {
 		}
 	}
 	return nil
-}
-
-func (c *Client) getXcmLatestVersion() {
-	moduleName := "XcmPallet"
-	if GetModule(moduleName, c.m) == nil {
-		moduleName = "PolkadotXcm"
-	}
-
-	call := getCallByName(moduleName, "send", c.m)
-
-	if call != nil {
-		c.XcmVersionTypeName = call.Args[1].Type
-
-		r := types.RuntimeType{}
-		_, value, _ := r.GetCodecClass(c.XcmVersionTypeName, 0)
-
-		var mappingTypes types.TypeMapping
-		b, _ := json.Marshal(value.Elem().FieldByName("TypeMapping").Interface())
-		_ = json.Unmarshal(b, &mappingTypes)
-
-		for _, name := range mappingTypes.Names {
-			if strings.HasPrefix(name, "V") {
-				c.XcmVersion = uint(util.ToInt(strings.ReplaceAll(name, "V", "")))
-			}
-		}
-		return
-	}
-	panic("The current chain does not support xcm")
 }
 
 // SendUmpTransfer send XCM UMP message
@@ -136,7 +107,7 @@ func (c *Client) SendUmpTransfer(accountId string, amount decimal.Decimal) (stri
 // accountId: the account id of the beneficiary
 // amount: the amount of the asset to be transferred
 func (c *Client) SendDmpTransfer(paraId uint32, accountId string, amount decimal.Decimal) (string, error) {
-	callName, args := c.Dmp.LimitedReserveTransferAssets(
+	callName, args := c.Dmp.LimitedTeleportAssets(
 		SimplifyMultiLocationParaId(paraId),
 		SimplifyMultiLocationAccountId32(accountId),
 		SimplifyMultiAssets(amount),
@@ -163,7 +134,27 @@ func (c *Client) SendHrmpTransfer(paraId uint32, accountId string, amount decima
 		0,
 		SimplifyUnlimitedWeight(),
 	)
-	signed, err := c.Conn.SignTransaction(c.Ump.GetModuleName(), callName, args...)
+	signed, err := c.Conn.SignTransaction(c.Hrmp.GetModuleName(), callName, args...)
+	if err != nil {
+		return "", err
+	}
+	tx, err := c.Conn.SendAuthorSubmitExtrinsic(signed)
+	return tx, err
+}
+
+func (c *Client) SendTokenToEthereum(h160, tokenContract string, amount decimal.Decimal, chainId uint64) (string, error) {
+	callName, args := c.Hrmp.TransferAssets(
+		&VersionedMultiLocation{V3: &V3MultiLocation{
+			Interior: V3MultiLocationJunctions{X1: &XCMJunctionV3{GlobalConsensus: &GlobalConsensusNetworkId{Ethereum: &chainId}}}, Parents: 2,
+		}},
+		&VersionedMultiLocation{V3: &V3MultiLocation{
+			Interior: V3MultiLocationJunctions{X1: &XCMJunctionV3{AccountKey20: &XCMJunctionV3AccountKey20{Key: h160}}}, Parents: 0,
+		}},
+		&MultiAssets{V3: []V3MultiAssets{SimplifyEthereumAssets(chainId, tokenContract, amount)}},
+		0,
+		SimplifyUnlimitedWeight(),
+	)
+	signed, err := c.Conn.SignTransaction(c.Hrmp.GetModuleName(), callName, args...)
 	if err != nil {
 		return "", err
 	}
