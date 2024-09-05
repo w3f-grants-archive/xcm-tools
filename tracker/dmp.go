@@ -3,6 +3,7 @@ package tracker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/gmajor-encrypt/xcm-tools/tx"
 	"github.com/itering/scale.go/types"
 	"github.com/itering/substrate-api-rpc/metadata"
@@ -26,20 +27,32 @@ func (d *Dmp) Track(ctx context.Context) (*Event, error) {
 	}
 
 	// origin relay chain
-	client, metadataInstant, closeClient := CreateSnapshotClient(d.originEndpoint)
+	client, closeClient := CreateSnapshotClient(d.originEndpoint)
 	blockHash, err := rpc.GetChainGetBlockHash(client.Conn, int(extrinsic.BlockNum))
 
 	if err != nil {
 		return nil, err
 	}
 
+	// get spec runtime version
+	raw, err := rpc.GetMetadataByHash(nil, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	metadataInstant := metadata.RegNewMetadataType(0, raw)
 	metadataStruct := types.MetadataStruct(*metadataInstant)
+	chain := checkChain(metadataInstant)
+	if chain == Solo {
+		return nil, errors.New("originEndpoint not parachain or relaychain")
+	}
+
 	events, err := getEvents(ctx, client, blockHash, &metadataStruct)
 	if err != nil {
 		return nil, err
 	}
 
-	event := findEventByEventId(events, extrinsic.Index, []string{"Attempted"})
+	event := findEventByEventId(events, int(extrinsic.Index), []string{"Attempted"})
 	if event == nil {
 		return nil, NotfoundXcmMessageErr
 	}
@@ -94,14 +107,17 @@ func (d *Dmp) Track(ctx context.Context) (*Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Println("Find nextBlockHash,start fetch PendingAvailability", nextBlockHash)
-		pendingAvailability, err := PendingAvailability(destParaId, nextBlockHash)
+		log.Printf("Find %d nextBlockHash,start fetch PendingAvailability %s \n", paraHeadBlockNum, nextBlockHash)
+		pendingAvailability, err := PendingAvailability(destParaId, nextBlockHash, metadataInstant)
 		if err != nil {
 			return nil, err
 		}
-		paraHead = pendingAvailability.Descriptor.ParaHead
 		retry++
 		paraHeadBlockNum++
+		if pendingAvailability == nil {
+			continue
+		}
+		paraHead = pendingAvailability.Descriptor.ParaHead
 		if paraHead != "" || retry > 5 {
 			break
 		}
@@ -116,9 +132,9 @@ func (d *Dmp) Track(ctx context.Context) (*Event, error) {
 	types.Clean()
 
 	// dest para chain
-	client, _, closeClient = CreateSnapshotClient(d.destEndpoint)
+	client, closeClient = CreateSnapshotClient(d.destEndpoint)
 	defer closeClient()
-	raw, err := rpc.GetMetadataByHash(nil, paraHead)
+	raw, err = rpc.GetMetadataByHash(nil, paraHead)
 	if err != nil {
 		return nil, err
 	}

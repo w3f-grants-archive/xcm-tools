@@ -8,7 +8,7 @@ import (
 )
 
 func Test_Client(t *testing.T) {
-	client := NewClient("wss://polkadot-rpc.dwellir.com")
+	client := NewClient("wss://rpc.polkadot.io")
 
 	assert.NotNil(t, GetModule("Balances", client.m))
 	assert.Nil(t, GetModule("xtokens", client.m))
@@ -57,6 +57,22 @@ func TestPolkadotToEthereum(t *testing.T) {
 			"0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
 			decimal.New(5000000000, 0),
 			11155111)
+		assert.NoError(t, err)
+		assert.Len(t, txHash, 66)
+	})
+}
+
+func TestRococoToWestend(t *testing.T) {
+	client := initClient("wss://rococo-asset-hub-rpc.polkadot.io")
+	client.SetKeyRing(AliceSeed2)
+	defer client.Close()
+
+	t.Run("TestRococoToWestend", func(t *testing.T) {
+		txHash, err := client.SendDotKsmChainToken(
+			DestAccountId,
+			1000, &GlobalConsensusNetworkId{Westend: &emptyEnumValue},
+			decimal.New(1, 0),
+		)
 		assert.NoError(t, err)
 		assert.Len(t, txHash, 66)
 	})

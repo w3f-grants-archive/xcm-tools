@@ -26,10 +26,22 @@ func (u *Ump) Track(ctx context.Context) (*Event, error) {
 	}
 
 	// origin para chain
-	client, metadataInstant, closeClient := CreateSnapshotClient(u.OriginEndpoint)
+	client, closeClient := CreateSnapshotClient(u.OriginEndpoint)
 	blockHash, err := rpc.GetChainGetBlockHash(client.Conn, int(extrinsic.BlockNum))
 	if err != nil {
 		return nil, err
+	}
+
+	// get spec runtime version
+	raw, err := rpc.GetMetadataByHash(nil, blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	metadataInstant := metadata.RegNewMetadataType(0, raw)
+	chain := checkChain(metadataInstant)
+	if chain == Solo {
+		return nil, errors.New("originEndpoint not parachain or relaychain")
 	}
 
 	metadataStruct := types.MetadataStruct(*metadataInstant)
@@ -38,7 +50,7 @@ func (u *Ump) Track(ctx context.Context) (*Event, error) {
 		return nil, err
 	}
 	// find UpwardMessageSent event get MessageHash
-	event := findEventByEventId(events, extrinsic.Index, []string{"UpwardMessageSent"})
+	event := findEventByEventId(events, int(extrinsic.Index), []string{"UpwardMessageSent"})
 	if event == nil {
 		return nil, NotfoundXcmMessageErr
 	}
@@ -77,7 +89,7 @@ func (u *Ump) Track(ctx context.Context) (*Event, error) {
 	closeClient()
 	types.Clean()
 
-	client, _, closeClient = CreateSnapshotClient(u.DestEndpoint)
+	client, closeClient = CreateSnapshotClient(u.DestEndpoint)
 	defer closeClient()
 	blockHash, err = rpc.GetChainGetBlockHash(client.Conn, relayChainBlockNum)
 	if err != nil {
@@ -85,7 +97,7 @@ func (u *Ump) Track(ctx context.Context) (*Event, error) {
 	}
 
 	log.Println("Find relaychain blockHash", blockHash)
-	raw, err := rpc.GetMetadataByHash(nil, blockHash)
+	raw, err = rpc.GetMetadataByHash(nil, blockHash)
 	if err != nil {
 		return nil, err
 	}
